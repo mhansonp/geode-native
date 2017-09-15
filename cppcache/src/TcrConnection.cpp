@@ -30,6 +30,7 @@
 #include "ClientProxyMembershipID.hpp"
 #include "ThinClientPoolHADM.hpp"
 #include "TcrEndpoint.hpp"
+#include "FakeConn.hpp"
 #include "GeodeTypeIdsImpl.hpp"
 #include "TcrConnectionManager.hpp"
 #include "DistributedSystemImpl.hpp"
@@ -561,16 +562,21 @@ Connector* TcrConnection::createConnection(
     const char* endpoint, std::chrono::microseconds connectTimeout,
     int32_t maxBuffSizePool) {
   Connector* socket = nullptr;
-  auto& systemProperties = m_connectionManager->getCacheImpl()
-                               ->getDistributedSystem()
-                               .getSystemProperties();
-  if (systemProperties.sslEnabled()) {
-    socket = new TcpSslConn(endpoint, connectTimeout, maxBuffSizePool,
-                            systemProperties.sslKeystorePassword().c_str(),
-                            systemProperties.sslTrustStore().c_str(),
-                            systemProperties.sslKeyStore().c_str());
+
+  if (strcmp(endpoint, "0.0.0.1:1") == 0) {
+    socket = new FakeConn();
   } else {
-    socket = new TcpConn(endpoint, connectTimeout, maxBuffSizePool);
+    auto &systemProperties = m_connectionManager->getCacheImpl()
+        ->getDistributedSystem()
+        .getSystemProperties();
+    if (systemProperties.sslEnabled()) {
+      socket = new TcpSslConn(endpoint, connectTimeout, maxBuffSizePool,
+                              systemProperties.sslKeystorePassword(),
+                              systemProperties.sslTrustStore(),
+                              systemProperties.sslKeyStore());
+    } else {
+      socket = new TcpConn(endpoint, connectTimeout, maxBuffSizePool);
+    }
   }
   // as socket.init() calls throws exception...
   m_conn = socket;
